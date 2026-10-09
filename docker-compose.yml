@@ -1,0 +1,8 @@
+services:
+  inspector:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      SLOW_QUERY_MS: "100"
+      N1_THRESHOLD: "3"
