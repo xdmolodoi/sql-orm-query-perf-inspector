@@ -14,23 +14,31 @@ from app.inspector import query_store
 
 @pytest.fixture
 def query_count_guard():
+    """Detect repeated SELECT statements inside a test."""
+
     @contextmanager
     def guard(max_repeats=3):
         known_ids = {
             event["id"] for event in query_store.events(500)
         }
+
         yield
 
         new_events = [
-            event for event in query_store.events(500)
+            event
+            for event in query_store.events(500)
             if event["id"] not in known_ids
         ]
+
         counts = Counter(
-            event["fingerprint"] for event in new_events
+            event["fingerprint"]
+            for event in new_events
             if event["is_select"]
         )
+
         violations = {
-            sql: count for sql, count in counts.items()
+            fingerprint: count
+            for fingerprint, count in counts.items()
             if count > max_repeats
         }
 
@@ -45,3 +53,4 @@ def query_count_guard():
             )
 
     return guard
+

@@ -1,104 +1,200 @@
-# SQL / ORM Query Perf Inspector
+# SQL / ORM Query Performance Inspector
 
-A runnable Python pet project for inspecting SQL queries, highlighting slow queries, and detecting likely ORM N+1 patterns through a web dashboard.
+A Python web application for monitoring SQL query execution, identifying slow queries, and detecting potential ORM **N+1 query problems**.
+
+Built as a portfolio project to demonstrate Python backend development, SQLAlchemy instrumentation, automated testing, and API design.
+
+## Overview
+
+Repeated database queries and inefficient ORM loading strategies can significantly affect application performance. This tool collects SQL execution events, normalizes query fingerprints, tracks execution duration, and raises alerts for suspicious patterns.
+
+The project includes a web dashboard and demo endpoints that make it possible to reproduce and inspect common query-performance issues locally.
 
 ## Features
 
-- FastAPI dashboard with query statistics
-- SQLAlchemy engine instrumentation using engine events
-- Slow-query alerts with configurable threshold
-- Heuristic N+1 detector based on repeated normalized `SELECT` fingerprints
-- Query history, query fingerprints, execution duration, and parameter preview
-- Demo endpoints for healthy eager loading, intentional N+1, and a delay demo
-- SQLite database seeded automatically
-- JSON API and tests
-- Dockerfile and Compose configuration
+* **SQL query instrumentation** using SQLAlchemy engine events.
+* **Slow-query detection** with a configurable execution-time threshold.
+* **Heuristic N+1 detection** based on repeated normalized `SELECT` fingerprints.
+* **Query history** with execution duration, fingerprints, and parameter previews.
+* **Web dashboard** with query statistics and alerts.
+* **REST API** for retrieving query information and triggering demos.
+* **Demo scenarios** for healthy loading, N+1 behavior, and delayed execution.
+* **Automated tests** using pytest.
+* **Continuous integration** with GitHub Actions.
+* **SQLite database** initialized automatically.
+* **Docker and Docker Compose** configuration.
 
-> N+1 detection is heuristic. Repeated queries can be legitimate; review findings in context. This is a development/profiling tool, not a production SQL proxy.
+## Tech Stack
 
-## Run on Windows PowerShell
-
-Requires Python 3.11+.
-
-```powershell
-cd sql-orm-query-perf-inspector
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-If PowerShell blocks activation, run without activating the environment:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-
-Open the dashboard at http://127.0.0.1:8000 and API docs at http://127.0.0.1:8000/docs.
-
-## Try it
-
-1. Click **Run healthy demo** to load authors and books using eager loading.
-2. Click **Trigger N+1 demo** to issue one query for authors and one lazy query per author.
-3. Review alerts and recent SQL history. The detector groups identical normalized SELECT statements in a short time window.
-4. Click **Run slow demo** to test the demo endpoint. Note: it adds an application delay; SQL instrumentation measures SQL execution time, not the total route duration.
-
-## Configuration
-
-| Environment variable | Default | Meaning |
-|---|---:|---|
-| `DATABASE_URL` | `sqlite:///./inspector.db` | SQLAlchemy database URL |
-| `SLOW_QUERY_MS` | `100` | SQL duration threshold in milliseconds |
-| `N1_THRESHOLD` | `3` | Repeated SELECT count needed for a candidate |
-| `QUERY_HISTORY_LIMIT` | `500` | In-memory event history limit |
-| `N1_WINDOW_SECONDS` | `10` | Time window for N+1 heuristic |
-
-## API
-
-- `GET /health`
-- `GET /api/summary`
-- `GET /api/queries?limit=100`
-- `GET /api/alerts`
-- `POST /api/demo/healthy`
-- `POST /api/demo/n-plus-one`
-- `POST /api/demo/slow`
-- `POST /api/clear`
+* Python
+* FastAPI
+* SQLAlchemy
+* SQLite
+* pytest
+* GitHub Actions
+* Docker
 
 ## Architecture
 
 ```text
-FastAPI routes / demo service
-          |
-          v
-SQLAlchemy Engine events
-(before_cursor_execute / after_cursor_execute)
-          |
-          v
-QueryStore: duration + normalized fingerprint + parameters
-          |
-          +----> Slow-query alerts
-          +----> N+1 heuristic
-          |
-          v
-Web dashboard + JSON API
+                 Web Dashboard
+                       |
+                 FastAPI Routes
+                       |
+                SQLAlchemy Engine
+                       |
+                Engine Event Hooks
+                       |
+                Query Instrumentation
+                       |
+          +------------+------------+
+          |                         |
+     Query History             Alert Detection
+          |                  +------+------+
+          |                  |             |
+    JSON REST API        Slow Queries   N+1 Candidates
 ```
 
-## Tests
+## Getting Started
+
+### Requirements
+
+* Python 3.11 or newer
+* Git
+
+### Run on Windows
+
+Clone the repository and enter the project directory:
 
 ```powershell
-python -m pytest -q
+git clone https://github.com/xdmolodoi/sql-orm-query-perf-inspector.git
+cd sql-orm-query-perf-inspector
 ```
 
-## Next steps
+Create and activate a virtual environment:
 
-1. Correlate queries with request IDs so repeated queries are grouped per HTTP request.
-2. Add PostgreSQL integration and explain-plan capture.
-3. Persist history instead of keeping it in memory.
-4. Add a real ORM sample application and benchmark suite.
-5. Add AI explanations after the core detector is validated.
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```powershell
+python -m pip install -r requirements.txt
+python -m pip install pytest httpx
+```
+
+Start the application:
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+Open the following URLs:
+
+* **Dashboard:** http://127.0.0.1:8000/
+* **API documentation:** http://127.0.0.1:8000/docs
+* **Health check:** http://127.0.0.1:8000/health
+* **Query summary:** http://127.0.0.1:8000/api/summary
+
+## Demo Scenarios
+
+Use the dashboard or API documentation to explore the available scenarios.
+
+### Healthy Query Loading
+
+```http
+POST /api/demo/healthy
+```
+
+Runs a demo using eager loading to avoid issuing a separate lazy-load query for each author.
+
+### N+1 Query Pattern
+
+```http
+POST /api/demo/n-plus-one
+```
+
+Triggers repeated queries so that the detector can identify a potential N+1 pattern.
+
+### Slow Demo
+
+```http
+POST /api/demo/slow
+```
+
+Runs a demo endpoint with an application-level delay. SQL instrumentation measures database statement execution time, not total HTTP request duration.
+
+### Inspect Alerts and History
+
+Review the dashboard or call:
+
+```http
+GET /api/alerts
+GET /api/queries?limit=100
+GET /api/summary
+```
+
+## API Endpoints
+
+| Method | Endpoint                 | Purpose                 |
+| ------ | ------------------------ | ----------------------- |
+| GET    | `/health`                | Health check            |
+| GET    | `/api/summary`           | Query statistics        |
+| GET    | `/api/queries?limit=100` | Recent query history    |
+| GET    | `/api/alerts`            | Detected alerts         |
+| POST   | `/api/demo/healthy`      | Healthy loading demo    |
+| POST   | `/api/demo/n-plus-one`   | N+1 demo                |
+| POST   | `/api/demo/slow`         | Slow demo               |
+| POST   | `/api/clear`             | Clear collected history |
+
+Interactive API documentation is available at `/docs`.
+
+## Configuration
+
+The application supports the following environment variables:
+
+| Variable              | Default                    | Description                          |
+| --------------------- | -------------------------- | ------------------------------------ |
+| `DATABASE_URL`        | `sqlite:///./inspector.db` | SQLAlchemy database URL              |
+| `SLOW_QUERY_MS`       | `100`                      | Slow-query threshold in milliseconds |
+| `N1_THRESHOLD`        | `3`                        | Repeated SELECT threshold            |
+| `QUERY_HISTORY_LIMIT` | `500`                      | Maximum in-memory event history      |
+| `N1_WINDOW_SECONDS`   | `10`                       | N+1 detection time window            |
+
+## Running Tests
+
+Install the test dependencies if needed:
+
+```powershell
+python -m pip install pytest httpx
+```
+
+Run the test suite:
+
+```powershell
+python -m pytest -v
+```
+
+GitHub Actions runs the tests automatically on pushes to `main` and pull requests targeting `main`.
+
+## Limitations
+
+* N+1 detection is heuristic; repeated SQL statements are not always a performance problem.
+* Query history is stored in memory and is cleared when the application restarts.
+* This is a local development and profiling tool, not a production database proxy.
+* SQL execution timing does not represent the full HTTP request duration.
+
+## Potential Improvements
+
+* Correlate SQL statements with HTTP request IDs.
+* Add PostgreSQL integration tests.
+* Capture and analyze database execution plans.
+* Persist query history.
+* Add benchmarking and performance regression thresholds.
+* Explore AI-assisted explanations of detected query patterns.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [LICENSE](LICENSE).
